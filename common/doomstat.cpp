@@ -63,16 +63,20 @@ bool IsGameModeFFA()
 	return sv_gametype == GM_DM && sv_maxplayers > 2;
 }
 
+EXTERN_CVAR(sv_maxlives)
+
 const char* GetGameModeString()
 {
+	bool lives = (sv_maxlives > 0);
+
 	if (sv_gametype == GM_COOP)
-		return "COOPERATIVE";
-	else if (IsGameModeDuel())
+		return lives ? "SURVIVAL COOP" : "COOPERATIVE";
+	else if (!lives && IsGameModeDuel())
 		return "DUEL";
 	else if (sv_gametype == GM_DM)
-		return "DEATHMATCH";
+		return lives ? "LAST MAN STANDING" : "DEATHMATCH";
 	else if (sv_gametype == GM_TEAMDM)
-		return "TEAM DEATHMATCH";
+		return lives ? "TEAM LMS" : "TEAM DM";
 	else if (sv_gametype == GM_CTF)
 		return "CAPTURE THE FLAG";
 
@@ -81,14 +85,21 @@ const char* GetGameModeString()
 
 const char* GetShortGameModeString()
 {
+	bool lives = (sv_maxlives > 0);
+
 	if (sv_gametype == GM_COOP)
-		return multiplayer ? "COOP" : "SOLO";
-	else if (IsGameModeDuel())
+	{
+		if (multiplayer)
+			return "SOLO";
+		else
+			return lives ? "SURVIVAL" : "COOP";
+	}
+	else if (!lives && IsGameModeDuel())
 		return "DUEL";
 	else if (sv_gametype == GM_DM)
-		return "DM";
+		return lives ? "LMS" : "DM";
 	else if (sv_gametype == GM_TEAMDM)
-		return "TDM";
+		return lives ? "TLMS" : "TDM";
 	else if (sv_gametype == GM_CTF)
 		return "CAPTURE THE FLAG";
 

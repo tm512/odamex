@@ -1019,14 +1019,20 @@ BEGIN_COMMAND (spectate)
 		// reset camera to self
 		displayplayer_id = consoleplayer_id;
 		CL_CheckDisplayPlayer();
+
+		// using "spectate" as a spectator resets the deadspec flag
+		// clientside, this hides the "waiting to respawn" text
+		consoleplayer().deadspec = false;
 	}
 
 	// Only send message if currently not a spectator, or to remove from play queue
-	if (!spectator || consoleplayer().QueuePosition > 0)
-	{
+	// TODO: sending this unconditionally so that the server can also reset the dead flag
+	//       clean this up when things are confirmed working
+//	if (!spectator || consoleplayer().QueuePosition > 0)
+//	{
 		MSG_WriteMarker(&net_buffer, clc_spectate);
 		MSG_WriteByte(&net_buffer, true);
-	}
+//	}
 }
 END_COMMAND (spectate)
 
@@ -3483,6 +3489,8 @@ void CL_Clear()
 	MSG_ReadChunk(left);
 }
 
+EXTERN_CVAR(sv_maxlives)
+
 void CL_Spectate()
 {
 	player_t &player = CL_FindPlayer(MSG_ReadByte());
@@ -3496,17 +3504,23 @@ void CL_Spectate()
 	if (player.spectator && player.mo && !wasspectator)
 		P_PlayerLeavesGame(&player);
 
-	// [tm512 2014/04/11] Do as the server does when unspectating a player.
-	// If the player has a "valid" mo upon going to PST_LIVE, any enemies
-	// that are still targeting the spectating player will cause a stack
-	// overflow in P_SetMobjState.
-
-	if (!player.spectator && !wasalive)
+	if (!wasalive)
 	{
-		if (player.mo)
-			P_KillMobj(NULL, player.mo, NULL, true);
+		// [tm512 2014/04/11] Do as the server does when unspectating a player.
+		// If the player has a "valid" mo upon going to PST_LIVE, any enemies
+		// that are still targeting the spectating player will cause a stack
+		// overflow in P_SetMobjState.
 
-		player.playerstate = PST_REBORN;
+		if (!player.spectator)
+		{
+			if (player.mo)
+				P_KillMobj(NULL, player.mo, NULL, true);
+
+			player.deadspec = false;
+			player.playerstate = PST_REBORN;
+		}
+		else if (sv_maxlives > 0 && player.deathcount >= sv_maxlives)
+			player.deadspec = true; // displays "waiting to respawn"
 	}
 
 	if (&player == &consoleplayer())
@@ -3553,7 +3567,7 @@ void CL_WarmupState()
 		// Read an extra countdown number off the wire
 		short count = MSG_ReadShort();
 		std::ostringstream buffer;
-		buffer << "Match begins in " << count << "...";
+		buffer << "Game begins in " << count << "...";
 		C_GMidPrint(buffer.str().c_str(), CR_GREEN, 0);
 	}
 	else

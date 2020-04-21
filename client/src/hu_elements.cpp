@@ -46,6 +46,7 @@ extern fixed_t FocalLengthX;
 
 EXTERN_CVAR (sv_fraglimit)
 EXTERN_CVAR (sv_gametype)
+EXTERN_CVAR (sv_maxlives)
 EXTERN_CVAR (sv_maxclients)
 EXTERN_CVAR (sv_maxplayers)
 EXTERN_CVAR (sv_maxplayersperteam)
@@ -207,11 +208,17 @@ static const char *ordinal(int n)
 // Return a "help" string.
 std::string HelpText()
 {
-	bool isGameFull = false;
+	bool canJoin = true;
 
 	if (P_NumPlayersInGame() >= sv_maxplayers)
 	{
-		isGameFull = true;
+		canJoin = false;
+	}
+	else if (sv_maxlives > 0 && warmup.get_status () == ::Warmup::INGAME)
+	{
+		// TODO - check whether a join timer is elapsed
+		// survival/LMS round in progress
+		canJoin = false;
 	}
 	else if (sv_gametype == GM_TEAMDM || sv_gametype == GM_CTF)
 	{
@@ -224,7 +231,7 @@ std::string HelpText()
 		}
 
 		if (sv_maxplayersperteam && min_players >= sv_maxplayersperteam)
-			isGameFull = true;
+			canJoin = false;
 	}
 
 	int queuePos = consoleplayer().QueuePosition;
@@ -236,12 +243,19 @@ std::string HelpText()
 		return ss.str();
 	}
 
-	if (isGameFull)
+	if (!canJoin)
 	{
-		std::string use("Press ");
-		use.append(C_GetKeyStringsFromCommand("+use"));
-		use.append(" to join the queue");
-		return use;
+		if (consoleplayer().deadspec)
+		{
+			return "Dead - Waiting to respawn";
+		}
+		else
+		{
+			std::string use("Press ");
+			use.append(C_GetKeyStringsFromCommand("+use"));
+			use.append(" to join the queue");
+			return use;
+		}
 	}
 
 	std::string use("Press ");
@@ -273,20 +287,21 @@ std::string Warmup(int& color)
 	color = CR_GREY;
 	player_t *dp = &displayplayer();
 	player_t *cp = &consoleplayer();
+	std::string mode(GetGameModeString());
 
 	::Warmup::status_t wstatus = warmup.get_status();
 
 	if (wstatus == ::Warmup::WARMUP)
 	{
 		if (dp->spectator)
-			return "Warmup: You are spectating";
+			return mode + ": You are spectating";
 		else if (dp->ready)
 		{
 			color = CR_GREEN;
 			if (dp == cp)
-				return "Warmup: You are ready";
+				return mode + ": You are ready";
 			else
-				return "Warmup: This player is ready";
+				return mode + ": This player is ready";
 		}
 		else
 		{
@@ -294,19 +309,51 @@ std::string Warmup(int& color)
 			if (dp == cp)
 			{
 				char strReady[64];
-				sprintf(strReady, "Warmup: Press %s to ready up", C_GetKeyStringsFromCommand("ready").c_str());
+				sprintf(strReady, "%s: Press %s to ready up", mode.c_str(), C_GetKeyStringsFromCommand("ready").c_str());
 				return strReady;
 			}
 			else
-				return "Warmup: This player is not ready";
+				return mode + ": This player is not ready";
 		}
 	}
 	else if (wstatus == ::Warmup::COUNTDOWN || wstatus == ::Warmup::FORCE_COUNTDOWN)
 	{
 		color = CR_GOLD;
-		return "Match is about to start...";
+		return "Game is about to start...";
 	}
 	return "";
+}
+
+std::string Lives(int& color)
+{
+	std::ostringstream ret;
+	player_t *dp = &displayplayer();
+	int lives;
+
+	if (sv_maxlives == 0)
+		return "";
+
+	// in the LMS modes, only display the lives counter if we have more than 1 life
+	if (sv_gametype != GM_COOP && sv_maxlives < 2)
+		return "";
+
+	color = CR_GRAY;
+
+	ret << "Lives: ";
+
+	lives = sv_maxlives - dp->deathcount;
+
+	// color code based on how many lives this player has left
+	if (lives <= sv_maxlives / 3 || lives == 1)
+		ret << "\\ca"; // red
+	else if (lives > (sv_maxlives / 3) * 2)
+		ret << "\\cd"; // green
+	else
+		ret << "\\cf"; // gold
+
+	ret << lives << " \\cc/ " << sv_maxlives;
+
+	return ret.str();
 }
 
 // Return a string that contains the amount of time left in the map,

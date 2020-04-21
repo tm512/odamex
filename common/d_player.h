@@ -238,7 +238,7 @@ public:
 
 	byte		spying;					// [SL] id of player being spynext'd by this player
 	bool		spectator;				// [GhostlyDeath] spectating?
-//	bool		deadspectator;			// [tm512] spectating as a dead player?
+	bool		deadspec;				// [tm512] flag whether this player spectated while dead
 	int			joindelay;			// Number of tics to delay player from rejoining
 	int			timeout_callvote;       // [AM] Tic when a vote last finished.
 	int			timeout_vote;           // [AM] Tic when a player last voted.

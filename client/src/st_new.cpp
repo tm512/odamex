@@ -566,10 +566,11 @@ void OdamexHUD() {
 
 	// TODO: I can probably get rid of these invocations once I put a
 	//       copy of ST_DrawNumRight into the hud namespace. -AM
-	unsigned int y, xscale, yscale;
+	unsigned int y, xscale, yscale, lives_y;
 	xscale = hud_scale ? CleanXfac : 1;
 	yscale = hud_scale ? CleanYfac : 1;
 	y = I_GetSurfaceHeight() - (numheight + 4) * yscale;
+	lives_y = 24;
 
 	// Draw Armor if the player has any
 	if (plyr->armortype && plyr->armorpoints) {
@@ -586,6 +587,7 @@ void OdamexHUD() {
 			                     current_armor);
 		}
 		ST_DrawNumRight(48 * xscale, y - 20 * yscale, screen, plyr->armorpoints);
+		lives_y += 20;
 	}
 
 	// Draw Doomguy.  Vertically scaled to an area two pixels above and
@@ -673,6 +675,13 @@ void OdamexHUD() {
 	              hud::X_RIGHT, hud::Y_BOTTOM,
 	              str.c_str(), color);
 
+	// In survival/LMS, draw lives display over the player's health
+	str = hud::Lives(color);
+	hud::DrawText(4, lives_y, hud_scale,
+	              hud::X_LEFT, hud::Y_BOTTOM,
+	              hud::X_LEFT, hud::Y_BOTTOM,
+	              str.c_str(), color);
+
 	// Draw keys in coop
 	if (sv_gametype == GM_COOP) {
 		for (byte i = 0;i < NUMCARDS;i++) {
@@ -741,6 +750,7 @@ void ZDoomHUD() {
 	ammotype_t ammotype = weaponinfo[plyr->readyweapon].ammotype;
 	int xscale = hud_scale ? CleanXfac : 1;
 	int yscale = hud_scale ? CleanYfac : 1;
+	int lives_y = 24;
 
 	y = I_GetSurfaceHeight() - (numheight + 4) * yscale;
 
@@ -781,6 +791,7 @@ void ZDoomHUD() {
 		}
 		ST_DrawNum (40*xscale, y - (armors[0]->height()+3)*yscale,
 					 screen, plyr->armorpoints);
+		lives_y += 20;
 	}
 
 	// Draw ammo
@@ -843,6 +854,13 @@ void ZDoomHUD() {
 		              str.c_str(), color);
 	}
 
+	// In survival/LMS, draw lives display over the player's health
+	str = hud::Lives(color);
+	hud::DrawText(4, lives_y, hud_scale,
+	              hud::X_LEFT, hud::Y_BOTTOM,
+	              hud::X_LEFT, hud::Y_BOTTOM,
+	              str.c_str(), color);
+
 	// Draw other player name, if spying
 	str = hud::SpyPlayerName(color);
 	hud::DrawText(0, 12, hud_scale,
@@ -889,6 +907,14 @@ void DoomHUD()
 		              str.c_str(), color);
 	}
 
+	// In survival/LMS, draw lives display over the player's health
+	str = hud::Lives(color);
+	hud::DrawText(4, st_y + 4, hud_scale,
+	              hud::X_LEFT, hud::Y_BOTTOM,
+	              hud::X_LEFT, hud::Y_BOTTOM,
+	              str.c_str(), color);
+
+	// Draw other player name, if spying
 	// Draw other player name, if spying
 	str = hud::SpyPlayerName(color);
 	hud::DrawText(0, st_y + 12, hud_scale,

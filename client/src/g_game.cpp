@@ -1128,9 +1128,8 @@ bool G_CheckSpot (player_t &player, mapthing2_t *mthing)
 	if (!valid_position)
 		return false;
 
-	// spawn a teleport fog
-//	if (!player.spectator && !player.deadspectator)	// ONLY IF THEY ARE NOT A SPECTATOR
-	if (!player.spectator)	// ONLY IF THEY ARE NOT A SPECTATOR
+	// spawn a teleport fog, but only if the player isn't a spectator
+	if (!player.spectator && !player.deadspec)
 	{
 		// emulate out-of-bounds access to finecosine / finesine tables
 		// which cause west-facing player spawns to have the spawn-fog

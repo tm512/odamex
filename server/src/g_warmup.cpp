@@ -36,6 +36,7 @@ EXTERN_CVAR(sv_warmup)
 EXTERN_CVAR(sv_warmup_autostart)
 EXTERN_CVAR(sv_countdown)
 EXTERN_CVAR(sv_timelimit)
+EXTERN_CVAR(sv_maxlives)
 
 extern int mapchange;
 
@@ -93,7 +94,9 @@ short Warmup::get_countdown()
 // Reset warmup to "factory defaults".
 void Warmup::reset(level_locals_t& level)
 {
-	if (sv_warmup && sv_gametype != GM_COOP && !(level.flags & LEVEL_LOBBYSPECIAL)) //do not allow warmup in lobby!
+	if (sv_maxlives > 0)
+		this->set_status(Warmup::WARMUP);
+	else if (sv_warmup && sv_gametype != GM_COOP && !(level.flags & LEVEL_LOBBYSPECIAL)) //do not allow warmup in lobby!
 		this->set_status(Warmup::WARMUP);
 	else
 		this->set_status(Warmup::DISABLED);
@@ -216,8 +219,22 @@ void Warmup::tic()
 		this->set_status(Warmup::COUNTDOWN);
 
 	// If there aren't any more active players, go back to warm up mode [tm512 2014/04/08]
-	if (this->status != Warmup::WARMUP && P_NumPlayersInGame () == 0)
+	if (this->status != Warmup::WARMUP && P_NumPlayersInGame() == 0 && spawnclock == 0)
 		this->set_status (Warmup::WARMUP);
+
+	// If we're in survival/LMS, and have enough players to start, activate the countdown
+	if (sv_maxlives > 0 && P_NumPlayersInGame() > (sv_gametype == GM_COOP ? 0 : 1))
+	{
+		// if we're on a brand new level, don't initiate the countdown, just carry on with the game
+		if (level.time == 1)
+		{
+			this->set_status(Warmup::INGAME);
+			return;
+		}
+
+		if (this->status == Warmup::WARMUP)
+			this->set_status(Warmup::FORCE_COUNTDOWN);
+	}
 
 	// If we're not advancing the countdown, we don't care.
 	if (!(this->status == Warmup::COUNTDOWN || this->status == Warmup::FORCE_COUNTDOWN))
@@ -235,7 +252,7 @@ void Warmup::tic()
 		return;
 	}
 
-	if (sv_warmup)
+	if (sv_warmup || sv_maxlives > 0)
 		this->set_status(Warmup::INGAME);
 	else
 		this->set_status(Warmup::DISABLED);
@@ -245,8 +262,13 @@ void Warmup::tic()
 	level.timeleft = sv_timelimit * TICRATE * 60;
 	level.inttimeleft = mapchange / TICRATE;
 
-	G_DeferedFullReset();
-	SV_BroadcastPrintf(PRINT_HIGH, "The match has started.\n");
+	// in LMS, we need to preserve points, so we don't do a full reset
+	if (sv_gametype != GM_COOP && sv_maxlives > 0)
+		G_DeferedReset();
+	else
+		G_DeferedFullReset();
+
+	SV_BroadcastPrintf(PRINT_HIGH, "The game has started.\n");
 }
 
 BEGIN_COMMAND (forcestart)

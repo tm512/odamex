@@ -613,20 +613,21 @@ void G_DoResetLevel(bool full_reset)
 	level.timeleft = sv_timelimit * TICRATE * 60;
 	level.inttimeleft = mapchange / TICRATE;
 
-	// Send information about the newly reset map.
 	for (it = players.begin();it != players.end();++it)
 	{
+		// Reset joindelay here if we aren't doing a full_reset
+	//	if (!full_reset)
+	//		it->joindelay = 0;
+
 		// Player needs to actually be ingame
 		if (!it->ingame())
 			continue;
 
+		// Send information about the newly reset map.
 		SV_ClientFullUpdate(*it);
-	}
-	// Force every ingame player to be reborn.
-	for (it = players.begin();it != players.end();++it)
-	{
-		// Spectators aren't reborn.
-		if (!it->ingame() || it->spectator)
+
+		// Force every non-spectating player to be reborn
+		if (it->spectator)
 			continue;
 
 		// Destroy the attached mobj, otherwise we leave a ghost.

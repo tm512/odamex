@@ -39,7 +39,10 @@ CVAR(				sv_friendlyfire, "1", "When set, players can injure others on the same 
 					"it is ignored in deathmatch",
 					CVARTYPE_BOOL, CVAR_SERVERARCHIVE | CVAR_SERVERINFO)
 
-CVAR_RANGE(			sv_scorelimit, "5", "Game ends when team score is reached in Teamplay/CTF",
+CVAR_RANGE(			sv_scorelimit, "5", "Game ends when team score is reached in Teamplay/CTF/LMS",
+					CVARTYPE_BYTE, CVAR_SERVERARCHIVE | CVAR_SERVERINFO | CVAR_NOENABLEDISABLE, 0.0f, 255.0f)
+
+CVAR_RANGE(			sv_roundlimit, "0", "Game ends after this many rounds in LMS/TLMS",
 					CVARTYPE_BYTE, CVAR_SERVERARCHIVE | CVAR_SERVERINFO | CVAR_NOENABLEDISABLE, 0.0f, 255.0f)
 
 CVAR(				sv_teamspawns, "1", "When disabled, treat team spawns like normal deathmatch " \
@@ -175,7 +178,10 @@ CVAR(				sv_coopunassignedvoodoodolls, "1", "",
 					
 CVAR(				sv_coopunassignedvoodoodollsfornplayers, "255", "", 
 					CVARTYPE_WORD, CVAR_SERVERINFO | CVAR_LATCH)
-	
+
+CVAR_RANGE(			sv_maxlives, "0", "Prevent players from respawning after they've died this many times (0 = infinity).",
+					CVARTYPE_WORD, CVAR_SERVERARCHIVE | CVAR_SERVERINFO | CVAR_NOENABLEDISABLE | CVAR_LATCH, 0.0f, 32768.0f)
+
 
 // Compatibility options
 // ---------------------------------

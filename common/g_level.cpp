@@ -1177,6 +1177,8 @@ void G_InitLevelLocals()
 	if (level.flags & LEVEL_FREELOOK_NO)
 		sv_freelook = 0.0;
 
+	level.round = 0;
+
 //	memset (level.vars, 0, sizeof(level.vars));
 
 	if (memcmp(level.fadeto_color, old_fadeto_color, 4) != 0)

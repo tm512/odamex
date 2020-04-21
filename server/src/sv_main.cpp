@@ -76,6 +76,9 @@ extern level_locals_t level;
 // to switch to a specific map out of order, otherwise false.
 bool unnatural_level_progression;
 
+// delay between the end of a survival/LMS round and the countdown for the next
+int spawnclock = 0;
+
 // denis - game manipulation, but no fancy gfx
 bool clientside = false, serverside = true;
 bool predicting = false;
@@ -622,6 +625,23 @@ void SV_MidPrint (const char *msg, player_t *p, int msgtime)
         MSG_WriteShort(&cl->reliablebuf, msgtime);
     else
         MSG_WriteShort(&cl->reliablebuf, 0);
+}
+
+// like above, but for all clients. also takes a format string
+void SV_BroadcastMidPrintf(int msgtime, const char *fmt, ...)
+{
+	va_list argptr;
+	char string[2048];
+
+	va_start(argptr, fmt);
+	vsnprintf(string, 2048, fmt, argptr);
+	va_end(argptr);
+	
+	for (Players::iterator it = players.begin(); it != players.end(); ++it)
+	{
+		if (it->ingame())
+			SV_MidPrint(string, &*it, msgtime);
+	}
 }
 
 //
@@ -1858,6 +1878,7 @@ void SV_InitPlayerEnterState(player_s* player)
 {
 	player->fragcount = 0;
 	player->killcount = 0;
+	player->deathcount = 0;
 	player->points = 0;
 	player->playerstate = PST_ENTER;
 }
@@ -3620,6 +3641,8 @@ void SV_Spectate(player_t &player)
 		player.mo->z = MSG_ReadLong();
 	}
 	else
+//	TODO: see if this is necessary, then comment on wtf I was trying to do here:
+//	else if (Code == 1 || level.time > player.joinafterspectatortime + TICRATE * 5)
 	{
 		SV_SetPlayerSpec(player, Code);
 	}
@@ -3628,6 +3651,7 @@ void SV_Spectate(player_t &player)
 // Change a player into a spectator or vice-versa.  Pass 'true' for silent
 // param to spec or unspec the player without a broadcasted message.
 void P_SetSpectatorFlags(player_t &player);
+EXTERN_CVAR(sv_maxlives)
 
 void SV_SetPlayerSpec(player_t &player, bool setting, bool silent)
 {
@@ -3640,19 +3664,26 @@ void SV_SetPlayerSpec(player_t &player, bool setting, bool silent)
 		SV_SpecPlayer(player, silent);
 	else if (setting && player.spectator && player.QueuePosition > 0)
 		SV_RemovePlayerFromQueue(&player);
+	else if (setting && player.deadspec)
+		player.deadspec = false; // this player won't auto-respawn in the next survival/LMS round
 }
 
 void SV_JoinPlayer(player_t &player, bool silent)
 {
-	if (player.joindelay > 0)
-		return;  
+	if (player.joindelay > 0) {
+		printf("joindelay active\n");
+		return;
+	}
 
 	int numPlayers = P_NumPlayersInGame();
+	bool gameInProgress = (warmup.get_status() == Warmup::INGAME);
 
-	// During intermission a playere can queue, but don't let them enter the game even if a slot is available
-	if (numPlayers >= sv_maxplayers || gamestate == GS_INTERMISSION)
+	// During intermission a player can queue, but don't let them enter the game even if a slot is available
+	// Also queue players who try joining while a survival/LMS game is in progress
+	if (numPlayers >= sv_maxplayers || gamestate == GS_INTERMISSION || (sv_maxlives > 0 && gameInProgress))
 	{
-		if (player.QueuePosition == 0)
+		// don't queue any player who is already in the queue or waiting for respawn in survival/LMS
+		if (player.QueuePosition == 0 && !player.deadspec)
 			SV_AddPlayerToQueue(&player);
 		return;
 	}
@@ -3675,6 +3706,7 @@ void SV_JoinPlayer(player_t &player, bool silent)
 
 	// Warn everyone we're not a spectator anymore.
 	player.spectator = false;
+	player.deadspec = false;
 	for (Players::iterator it = players.begin(); it != players.end(); ++it)
 	{
 		MSG_WriteMarker(&it->client.reliablebuf, svc_spectate);
@@ -3723,8 +3755,19 @@ void SV_SpecPlayer(player_t &player, bool silent)
 
 	// [tm512 2014/04/18] Avoid setting spectator flags on a dead player
 	// Instead we respawn the player, move him back, and immediately spectate him afterwards
+	// The deadspec flag will prevent the player's body from immediately vanishing,
+	// and in survival/LMS, it will flag the player for respawn in the next round
 	if (player.playerstate == PST_DEAD)
+	{
+		player.deadspec = true;
 		G_DoReborn(player);
+
+		// if they spectated voluntarily, unset the dead flag since we don't need it anymore
+		if (sv_maxlives == 0 || player.deathcount < sv_maxlives)
+			player.deadspec = false;
+	}
+	else
+		player.deadspec = false;
 
 	player.spectator = true;
 
@@ -4319,8 +4362,35 @@ void SV_WinCheck (void)
 	{
 		shotclock--;
 
-		if (!shotclock)
+		if (shotclock == 0)
 			G_ExitLevel (0, 1);
+	}
+}
+
+void SV_SpawnTimer(void)
+{
+	if (spawnclock > 0)
+	{
+		spawnclock--;
+
+		if (spawnclock == 0)
+		{
+			warmup.reset(level);
+
+			// players that died in the last round have dibs on spawning in the next
+			for (Players::iterator it = players.begin(); it != players.end(); ++it)
+			{
+			//	printf ("%s %i %i\n", it->userinfo.netname.c_str (), (int)it->deadspec, it->deathcount);
+				if (it->deadspec)
+				{
+					it->joindelay = 0; // reset joindelay so that we can actually join
+					SV_SetPlayerSpec (*it, false, true);
+				}
+			}
+
+			// spawn in players from the queue now
+			SV_UpdatePlayerQueuePositions();
+		}
 	}
 }
 
@@ -4614,6 +4684,7 @@ void SV_GameTics (void)
 			SV_RemoveCorpses();
 			warmup.tic();
 			SV_WinCheck();
+			SV_SpawnTimer();
 			SV_TimelimitCheck();
 			Vote_Runtic();
 		break;
@@ -5326,7 +5397,8 @@ void SV_UpdatePlayerQueueLevelChange()
 
 bool SV_ShouldDequeuePlayer(int playerCount)
 {
-	return gamestate != GS_INTERMISSION && !shotclock && playerCount < sv_maxplayers;
+	bool survShouldSpawn = (sv_maxlives == 0 || (!spawnclock && warmup.get_status() != Warmup::INGAME));
+	return gamestate != GS_INTERMISSION && !shotclock && survShouldSpawn && playerCount < sv_maxplayers;
 }
 
 void SV_UpdatePlayerQueuePositions(player_t* disconnectPlayer)

@@ -88,6 +88,7 @@ void SV_Sound (fixed_t x, fixed_t y, byte channel, const char *name, byte attenu
 void SV_SoundTeam (byte channel, const char* name, byte attenuation, int t);
 
 void SV_MidPrint (const char *msg, player_t *p, int msgtime=0);
+void SV_BroadcastMidPrintf(int msgtime, const char *fmt, ...);
 
 extern std::vector<std::string> wadnames;
 void MSG_WriteMarker (buf_t *b, svc_t c);
@@ -131,5 +132,6 @@ void SV_ClearPlayerQueue();
 bool CompareQueuePosition(const player_t* p1, const player_t* p2);
 
 extern bool unnatural_level_progression;
+extern int spawnclock;
 
 #endif

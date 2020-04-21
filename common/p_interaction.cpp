@@ -35,6 +35,7 @@
 #include "p_ctf.h"
 #include "p_acs.h"
 #include "g_warmup.h"
+#include "g_level.h"
 
 extern bool predicting;
 
@@ -43,6 +44,8 @@ EXTERN_CVAR(sv_weaponstay)
 EXTERN_CVAR(sv_weapondamage)
 EXTERN_CVAR(sv_monsterdamage)
 EXTERN_CVAR(sv_fraglimit)
+EXTERN_CVAR(sv_scorelimit)
+EXTERN_CVAR(sv_roundlimit)
 EXTERN_CVAR(sv_fragexitswitch) // [ML] 04/4/06: Added compromise for older exit method
 EXTERN_CVAR(sv_friendlyfire)
 EXTERN_CVAR(sv_allowexit)
@@ -52,6 +55,7 @@ EXTERN_CVAR(co_zdoomphys)
 EXTERN_CVAR(cl_predictpickup)
 EXTERN_CVAR(co_zdoomsound)
 EXTERN_CVAR(co_globalsound)
+EXTERN_CVAR(sv_maxlives)
 
 int shotclock = 0;
 int MeansOfDeath;
@@ -77,6 +81,12 @@ void SV_ActorTarget(AActor *actor);
 void SV_SetWinPlayer(byte playerId);
 void PickupMessage(AActor *toucher, const char *message);
 void WeaponPickupMessage(AActor *toucher, weapontype_t &Weapon);
+
+// functions/variables used for survival/LMS
+void SV_SetPlayerSpec(player_t &player, bool setting, bool silent);
+size_t P_NumPlayersInGame();
+void SV_BroadcastMidPrintf(int msgtime, const char *fmt, ...);
+extern int spawnclock; // like shotclock, but it delays respawns before a new round, instead of delaying intermission
 
 //
 // GET STUFF
@@ -952,7 +962,8 @@ void P_KillMobj(AActor *source, AActor *target, AActor *inflictor, bool joinkill
 		// Don't count any frags at level start, because they're just telefrags
 		// resulting from insufficient deathmatch starts, and it wouldn't be
 		// fair to count them toward a player's score.
-		if (target->player && level.time)
+		// Also, we only care about frags outside of LMS, since LMS is scored differently
+		if (target->player && level.time && (sv_maxlives == 0 || sv_gametype == GM_COOP))
 		{
 			if (!joinkill && !shotclock)
 			{
@@ -1086,8 +1097,138 @@ void P_KillMobj(AActor *source, AActor *target, AActor *inflictor, bool joinkill
 	{
 		ClientObituary(target, inflictor, source);
 	}
+
+	// in survival/LMS, check whether the player has any lives left
+	// don't check this on the client, or when P_KillMobj is being called on a spectator joining the game
+	if (serverside && !joinkill && sv_maxlives > 0 && tplayer && tplayer->deathcount >= sv_maxlives)
+	{
+		SV_SetPlayerSpec(*tplayer, true, true);
+
+		// only announce this in survival
+		if (sv_gametype == GM_COOP)
+			SV_BroadcastPrintf(PRINT_HIGH, "%s ran out of lives.\n", tplayer->userinfo.netname.c_str ());
+
+		// check for the end of this round
+
+		// survival - was this player the last one alive?
+		if (sv_gametype == GM_COOP && P_NumPlayersInGame() == 0)
+		{
+			SV_BroadcastMidPrintf(0, "\\cgMission failed!");
+			spawnclock = TICRATE * 3;
+		}
+		// LMS - do we have a winner?
+		else if (sv_gametype == GM_DM && P_NumPlayersInGame() == 1)
+		{
+			Players::iterator winner, highest;
+			bool draw = false;
+
+			winner = highest = players.end();
+
+			// find the last remaining player, as well as the player with the highest score
+			for (Players::iterator pit = players.begin(); pit != players.end(); ++pit)
+			{
+				if (!pit->spectator && pit->ingame())
+				{
+					winner = pit;
+					winner->points++;
+				}
+
+				if (highest == players.end () || pit->points > highest->points)
+				{
+					highest = pit;
+					draw = false;
+				}
+				else if (pit->points == highest->points)
+					draw = true;
+			}
+
+			level.round++;
+
+			// check for scorelimit and roundlimit, otherwise just move on to the next round
+			if (winner->points >= sv_scorelimit)
+			{
+				SV_BroadcastPrintf(PRINT_HIGH, "Score limit hit. Game won by %s\n", winner->userinfo.netname.c_str());
+				SV_BroadcastMidPrintf(0, "%s wins!", winner->userinfo.netname.c_str());
+				shotclock = TICRATE * 2;
+			}
+			else if (sv_roundlimit > 0 && level.round >= sv_roundlimit)
+			{
+				if (draw)
+				{
+					SV_BroadcastPrintf(PRINT_HIGH, "Round limit hit. Game is a draw\n");
+					SV_BroadcastMidPrintf(0, "Game is a draw");
+				}
+				else
+				{
+					SV_BroadcastPrintf (PRINT_HIGH, "Round limit hit. Game won by %s\n", highest->userinfo.netname.c_str());
+					SV_BroadcastMidPrintf(0, "%s wins!", winner->userinfo.netname.c_str());
+				}
+
+				shotclock = TICRATE * 2;
+			}
+			else
+			{
+				SV_BroadcastMidPrintf(0, "%s wins the round!", winner->userinfo.netname.c_str());
+				spawnclock = TICRATE * 3;
+			}
+		}
+		else if (sv_gametype == GM_TEAMDM)
+		{
+			int remaining[NUMTEAMS] = { 0 };
+			bool redwin, bluewin;
+
+			// count the number of players on each team
+			for (Players::iterator pit = players.begin(); pit != players.end(); ++pit)
+			{
+				if (!pit->spectator && pit->ingame())
+					remaining[pit->userinfo.team]++;
+			}
+
+			bluewin = (remaining[TEAM_RED] == 0);
+			redwin = (remaining[TEAM_BLUE] == 0);
+
+			if (bluewin || redwin)
+			{
+				int winner = bluewin ? TEAM_BLUE : TEAM_RED;
+
+				TEAMpoints[winner]++;
+				level.round++;
+
+				// check for scorelimit and roundlimit, otherwise just move on to the next round
+				if (TEAMpoints[winner] >= sv_scorelimit)
+				{
+					SV_BroadcastPrintf(PRINT_HIGH, "Score limit hit. %s team wins!\n", team_names[winner]);
+					SV_BroadcastMidPrintf(0, "%s team wins!", team_names[winner]);
+					shotclock = TICRATE * 2;
+				}
+				else if (sv_roundlimit > 0 && level.round >= sv_roundlimit)
+				{
+					winner = TEAMpoints[TEAM_RED] > TEAMpoints[TEAM_BLUE] ? TEAM_RED : TEAM_BLUE;
+
+					if (TEAMpoints[TEAM_RED] == TEAMpoints[TEAM_BLUE])
+					{
+						SV_BroadcastPrintf (PRINT_HIGH, "Round limit hit. Game is a draw\n");
+						SV_BroadcastMidPrintf(0, "Game is a draw");
+					}
+					else
+					{
+						SV_BroadcastPrintf (PRINT_HIGH, "Round limit hit. %s team wins!\n", team_names[winner]);
+						SV_BroadcastMidPrintf(0, "%s team wins!", team_names[winner]);
+					}
+
+					shotclock = TICRATE * 2;
+				}
+				else
+				{
+					SV_BroadcastMidPrintf(0, "%s team wins the round", team_names[winner]);
+					spawnclock = TICRATE * 3;
+				}
+			}
+		}
+	}
+
 	// Check sv_fraglimit.
-	if (source && source->player && target->player && level.time)
+	if (source && source->player && target->player && level.time && sv_maxlives == 0)
 	{
 		// [Toke] Better sv_fraglimit
 		if (sv_gametype == GM_DM && sv_fraglimit &&
@@ -1099,6 +1240,7 @@ void P_KillMobj(AActor *source, AActor *target, AActor *inflictor, bool joinkill
                 "Frag limit hit. Game won by %s!\n",
                 splayer->userinfo.netname.c_str()
             );
+			SV_BroadcastMidPrintf(0, "%s wins!", splayer->userinfo.netname.c_str());
 			SV_SetWinPlayer(splayer->id);
             shotclock = TICRATE*2;
 		}
@@ -1115,6 +1257,7 @@ void P_KillMobj(AActor *source, AActor *target, AActor *inflictor, bool joinkill
                         "Frag limit hit. %s team wins!\n",
                         team_names[i]
                     );
+					SV_BroadcastMidPrintf(0, "%s team wins!", team_names[i]);
 					shotclock = TICRATE * 2;
 					break;
 				}

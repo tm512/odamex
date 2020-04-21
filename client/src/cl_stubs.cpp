@@ -30,8 +30,10 @@
 // Unnatural Level Progression.  True if we've used 'map' or another command
 // to switch to a specific map out of order, otherwise false.
 bool unnatural_level_progression;
+int spawnclock = 0;
 
 void STACK_ARGS SV_BroadcastPrintf(int level, const char *fmt, ...) {}
+void STACK_ARGS SV_BroadcastMidPrintf(int msgtime, const char *fmt, ...) {}
 
 void D_SendServerInfoChange(const cvar_t *cvar, const char *value) {}
 void D_DoServerInfoChange(byte **stream) {}
@@ -62,6 +64,8 @@ void CTF_SpawnFlag(flag_t f) {}
 bool SV_AwarenessUpdate(player_t &pl, AActor* mo) { return true; }
 void SV_SendPackets(void) {}
 void SV_SetWinPlayer(byte playerId) {}
+void SV_SetPlayerSpec(player_t &player, bool setting, bool silent) {}
+void SV_BroadcastMidPrint (const char *msg, int msgtime) {}
 
 VERSION_CONTROL (cl_stubs_cpp, "$Id$")
 

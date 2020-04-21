@@ -160,6 +160,8 @@ struct level_locals_t {
 	int				total_monsters;
 	int				killed_monsters;
 
+	int				round; // current round, for LMS modes
+
 	float			gravity;
 	fixed_t			aircontrol;
 	fixed_t			airfriction;

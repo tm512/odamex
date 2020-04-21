@@ -179,7 +179,7 @@ CVAR(				sv_coopunassignedvoodoodolls, "1", "",
 CVAR(				sv_coopunassignedvoodoodollsfornplayers, "255", "", 
 					CVARTYPE_WORD, CVAR_SERVERINFO | CVAR_LATCH)
 
-CVAR_RANGE(			sv_maxlives, "0", "Prevent players from respawning after they've died this many times (0 = infinity).",
+CVAR_RANGE(			sv_lives, "0", "Prevent players from respawning after they've died this many times (0 = infinity).",
 					CVARTYPE_WORD, CVAR_SERVERARCHIVE | CVAR_SERVERINFO | CVAR_NOENABLEDISABLE | CVAR_LATCH, 0.0f, 32768.0f)
 
 

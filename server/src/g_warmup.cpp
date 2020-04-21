@@ -36,7 +36,7 @@ EXTERN_CVAR(sv_warmup)
 EXTERN_CVAR(sv_warmup_autostart)
 EXTERN_CVAR(sv_countdown)
 EXTERN_CVAR(sv_timelimit)
-EXTERN_CVAR(sv_maxlives)
+EXTERN_CVAR(sv_lives)
 
 extern int mapchange;
 
@@ -94,7 +94,7 @@ short Warmup::get_countdown()
 // Reset warmup to "factory defaults".
 void Warmup::reset(level_locals_t& level)
 {
-	if (sv_maxlives > 0)
+	if (sv_lives > 0)
 		this->set_status(Warmup::WARMUP);
 	else if (sv_warmup && sv_gametype != GM_COOP && !(level.flags & LEVEL_LOBBYSPECIAL)) //do not allow warmup in lobby!
 		this->set_status(Warmup::WARMUP);
@@ -223,7 +223,7 @@ void Warmup::tic()
 		this->set_status (Warmup::WARMUP);
 
 	// If we're in survival/LMS, and have enough players to start, activate the countdown
-	if (sv_maxlives > 0 && P_NumPlayersInGame() > (sv_gametype == GM_COOP ? 0 : 1))
+	if (sv_lives > 0 && P_NumPlayersInGame() > (sv_gametype == GM_COOP ? 0 : 1))
 	{
 		// if we're on a brand new level, don't initiate the countdown, just carry on with the game
 		if (level.time == 1)
@@ -252,7 +252,7 @@ void Warmup::tic()
 		return;
 	}
 
-	if (sv_warmup || sv_maxlives > 0)
+	if (sv_warmup || sv_lives > 0)
 		this->set_status(Warmup::INGAME);
 	else
 		this->set_status(Warmup::DISABLED);
@@ -263,7 +263,7 @@ void Warmup::tic()
 	level.inttimeleft = mapchange / TICRATE;
 
 	// in LMS, we need to preserve points, so we don't do a full reset
-	if (sv_gametype != GM_COOP && sv_maxlives > 0)
+	if (sv_gametype != GM_COOP && sv_lives > 0)
 		G_DeferedReset();
 	else
 		G_DeferedFullReset();

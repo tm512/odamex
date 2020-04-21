@@ -3651,7 +3651,7 @@ void SV_Spectate(player_t &player)
 // Change a player into a spectator or vice-versa.  Pass 'true' for silent
 // param to spec or unspec the player without a broadcasted message.
 void P_SetSpectatorFlags(player_t &player);
-EXTERN_CVAR(sv_maxlives)
+EXTERN_CVAR(sv_lives)
 
 void SV_SetPlayerSpec(player_t &player, bool setting, bool silent)
 {
@@ -3680,7 +3680,7 @@ void SV_JoinPlayer(player_t &player, bool silent)
 
 	// During intermission a player can queue, but don't let them enter the game even if a slot is available
 	// Also queue players who try joining while a survival/LMS game is in progress
-	if (numPlayers >= sv_maxplayers || gamestate == GS_INTERMISSION || (sv_maxlives > 0 && gameInProgress))
+	if (numPlayers >= sv_maxplayers || gamestate == GS_INTERMISSION || (sv_lives > 0 && gameInProgress))
 	{
 		// don't queue any player who is already in the queue or waiting for respawn in survival/LMS
 		if (player.QueuePosition == 0 && !player.deadspec)
@@ -3763,7 +3763,7 @@ void SV_SpecPlayer(player_t &player, bool silent)
 		G_DoReborn(player);
 
 		// if they spectated voluntarily, unset the dead flag since we don't need it anymore
-		if (sv_maxlives == 0 || player.deathcount < sv_maxlives)
+		if (sv_lives == 0 || player.deathcount < sv_lives)
 			player.deadspec = false;
 	}
 	else
@@ -5397,7 +5397,7 @@ void SV_UpdatePlayerQueueLevelChange()
 
 bool SV_ShouldDequeuePlayer(int playerCount)
 {
-	bool survShouldSpawn = (sv_maxlives == 0 || (!spawnclock && warmup.get_status() != Warmup::INGAME));
+	bool survShouldSpawn = (sv_lives == 0 || (!spawnclock && warmup.get_status() != Warmup::INGAME));
 	return gamestate != GS_INTERMISSION && !shotclock && survShouldSpawn && playerCount < sv_maxplayers;
 }
 

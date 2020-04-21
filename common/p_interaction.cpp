@@ -55,7 +55,7 @@ EXTERN_CVAR(co_zdoomphys)
 EXTERN_CVAR(cl_predictpickup)
 EXTERN_CVAR(co_zdoomsound)
 EXTERN_CVAR(co_globalsound)
-EXTERN_CVAR(sv_maxlives)
+EXTERN_CVAR(sv_lives)
 
 int shotclock = 0;
 int MeansOfDeath;
@@ -963,7 +963,7 @@ void P_KillMobj(AActor *source, AActor *target, AActor *inflictor, bool joinkill
 		// resulting from insufficient deathmatch starts, and it wouldn't be
 		// fair to count them toward a player's score.
 		// Also, we only care about frags outside of LMS, since LMS is scored differently
-		if (target->player && level.time && (sv_maxlives == 0 || sv_gametype == GM_COOP))
+		if (target->player && level.time && (sv_lives == 0 || sv_gametype == GM_COOP))
 		{
 			if (!joinkill && !shotclock)
 			{
@@ -1100,7 +1100,7 @@ void P_KillMobj(AActor *source, AActor *target, AActor *inflictor, bool joinkill
 
 	// in survival/LMS, check whether the player has any lives left
 	// don't check this on the client, or when P_KillMobj is being called on a spectator joining the game
-	if (serverside && !joinkill && sv_maxlives > 0 && tplayer && tplayer->deathcount >= sv_maxlives)
+	if (serverside && !joinkill && sv_lives > 0 && tplayer && tplayer->deathcount >= sv_lives)
 	{
 		SV_SetPlayerSpec(*tplayer, true, true);
 
@@ -1228,7 +1228,7 @@ void P_KillMobj(AActor *source, AActor *target, AActor *inflictor, bool joinkill
 	}
 
 	// Check sv_fraglimit.
-	if (source && source->player && target->player && level.time && sv_maxlives == 0)
+	if (source && source->player && target->player && level.time && sv_lives == 0)
 	{
 		// [Toke] Better sv_fraglimit
 		if (sv_gametype == GM_DM && sv_fraglimit &&

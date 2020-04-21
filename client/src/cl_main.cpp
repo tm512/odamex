@@ -3489,7 +3489,7 @@ void CL_Clear()
 	MSG_ReadChunk(left);
 }
 
-EXTERN_CVAR(sv_maxlives)
+EXTERN_CVAR(sv_lives)
 
 void CL_Spectate()
 {
@@ -3519,7 +3519,7 @@ void CL_Spectate()
 			player.deadspec = false;
 			player.playerstate = PST_REBORN;
 		}
-		else if (sv_maxlives > 0 && player.deathcount >= sv_maxlives)
+		else if (sv_lives > 0 && player.deathcount >= sv_lives)
 			player.deadspec = true; // displays "waiting to respawn"
 	}
 

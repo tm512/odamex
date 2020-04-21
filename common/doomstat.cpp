@@ -63,11 +63,11 @@ bool IsGameModeFFA()
 	return sv_gametype == GM_DM && sv_maxplayers > 2;
 }
 
-EXTERN_CVAR(sv_maxlives)
+EXTERN_CVAR(sv_lives)
 
 const char* GetGameModeString()
 {
-	bool lives = (sv_maxlives > 0);
+	bool lives = (sv_lives > 0);
 
 	if (sv_gametype == GM_COOP)
 		return lives ? "SURVIVAL COOP" : "COOPERATIVE";
@@ -85,7 +85,7 @@ const char* GetGameModeString()
 
 const char* GetShortGameModeString()
 {
-	bool lives = (sv_maxlives > 0);
+	bool lives = (sv_lives > 0);
 
 	if (sv_gametype == GM_COOP)
 	{

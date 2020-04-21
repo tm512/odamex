@@ -46,7 +46,7 @@ extern fixed_t FocalLengthX;
 
 EXTERN_CVAR (sv_fraglimit)
 EXTERN_CVAR (sv_gametype)
-EXTERN_CVAR (sv_maxlives)
+EXTERN_CVAR (sv_lives)
 EXTERN_CVAR (sv_maxclients)
 EXTERN_CVAR (sv_maxplayers)
 EXTERN_CVAR (sv_maxplayersperteam)
@@ -214,7 +214,7 @@ std::string HelpText()
 	{
 		canJoin = false;
 	}
-	else if (sv_maxlives > 0 && warmup.get_status () == ::Warmup::INGAME)
+	else if (sv_lives > 0 && warmup.get_status () == ::Warmup::INGAME)
 	{
 		// TODO - check whether a join timer is elapsed
 		// survival/LMS round in progress
@@ -330,28 +330,28 @@ std::string Lives(int& color)
 	player_t *dp = &displayplayer();
 	int lives;
 
-	if (sv_maxlives == 0)
+	if (sv_lives == 0)
 		return "";
 
 	// in the LMS modes, only display the lives counter if we have more than 1 life
-	if (sv_gametype != GM_COOP && sv_maxlives < 2)
+	if (sv_gametype != GM_COOP && sv_lives < 2)
 		return "";
 
 	color = CR_GRAY;
 
 	ret << "Lives: ";
 
-	lives = sv_maxlives - dp->deathcount;
+	lives = sv_lives - dp->deathcount;
 
 	// color code based on how many lives this player has left
-	if (lives <= sv_maxlives / 3 || lives == 1)
+	if (lives <= sv_lives / 3 || lives == 1)
 		ret << "\\ca"; // red
-	else if (lives > (sv_maxlives / 3) * 2)
+	else if (lives > (sv_lives / 3) * 2)
 		ret << "\\cd"; // green
 	else
 		ret << "\\cf"; // gold
 
-	ret << lives << " \\cc/ " << sv_maxlives;
+	ret << lives << " \\cc/ " << sv_lives;
 
 	return ret.str();
 }
